@@ -75,7 +75,7 @@ func setupRoutes(port string) *chi.Mux {
 
 	r.Route("/comments", func(r chi.Router) {
 		r.Get("/", ch.getComments)
-		r.Post("/", ch.createComment)
+		r.Post("/", AuthUser(ch.createComment))
 	})
 
 	return r
@@ -119,6 +119,16 @@ func NewCommentHandler(cr dblayer.CommentRepository) CommentHandler {
 	return CommentHandler{
 		cr: cr,
 	}
+}
+
+func AuthUser(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("authed") != "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	})
 }
 
 func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
