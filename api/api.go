@@ -11,9 +11,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"tutgo/business/comment"
 	"tutgo/db"
-	"tutgo/db/dblayer"
-	"tutgo/db/models"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -70,7 +69,7 @@ func setupRoutes(port string) *chi.Mux {
 		log.Fatalf("cant create database %v", err)
 	}
 
-	cr := dblayer.NewCommentLayer(pool)
+	cr := comment.NewCommentLayer(pool)
 	ch := NewCommentHandler(cr)
 
 	r.Route("/comments", func(r chi.Router) {
@@ -79,11 +78,6 @@ func setupRoutes(port string) *chi.Mux {
 	})
 
 	return r
-}
-
-type CreateCommentReq struct {
-	Comment string `json:"comment"`
-	UserID  int64  `json:"user_id"`
 }
 
 type Response struct {
@@ -102,7 +96,7 @@ func NewErrorResp(m string, c int) *Response {
 	}
 }
 
-func NewCommentRes(m string, c interface{}) *Response {
+func NewResp(m string, c interface{}) *Response {
 	return &Response{
 		Success: true,
 		Message: m,
@@ -112,12 +106,12 @@ func NewCommentRes(m string, c interface{}) *Response {
 }
 
 type CommentHandler struct {
-	cr dblayer.CommentRepository
+	storer comment.Storer
 }
 
-func NewCommentHandler(cr dblayer.CommentRepository) CommentHandler {
+func NewCommentHandler(s comment.Storer) CommentHandler {
 	return CommentHandler{
-		cr: cr,
+		storer: s,
 	}
 }
 
@@ -133,7 +127,7 @@ func AuthUser(next http.HandlerFunc) http.HandlerFunc {
 
 func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 	var (
-		req = new(CreateCommentReq)
+		req = new(comment.NewComment)
 		res = new(Response)
 		err error
 	)
@@ -148,7 +142,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := h.cr.Create(&models.Comment{
+	c, err := h.storer.Create(&comment.Comment{
 		Comment: req.Comment,
 		UserID:  req.UserID,
 	})
@@ -163,7 +157,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res = NewCommentRes("comment created!", c)
+	res = NewResp("comment created!", c)
 	if err = json.NewEncoder(w).Encode(res); err != nil {
 		log.Printf("couldn't send error response %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -174,7 +168,7 @@ func (h *CommentHandler) createComment(w http.ResponseWriter, r *http.Request) {
 func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 	var res = new(Response)
 
-	cms, err := h.cr.All()
+	cms, err := h.storer.All()
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			res = NewErrorResp(err.Error(), http.StatusNotFound)
@@ -195,7 +189,7 @@ func (h *CommentHandler) getComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res = NewCommentRes("comments fetched!", cms)
+	res = NewResp("comments fetched!", cms)
 	if err = json.NewEncoder(w).Encode(res); err != nil {
 		log.Printf("couldn't send error response %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)

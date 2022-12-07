@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"tutgo/pkg/api"
+	"tutgo/api"
 )
 
 func main() {

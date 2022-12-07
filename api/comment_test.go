@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"tutgo/db/models"
+	"tutgo/business/comment"
 	"tutgo/mocks"
 
 	"github.com/golang/mock/gomock"
@@ -17,16 +17,16 @@ import (
 func TestCreateComment(t *testing.T) {
 	tc := []struct {
 		Name          string
-		ReqBody       CreateCommentReq
+		ReqBody       comment.NewComment
 		StatusCode    int
-		CallMuckFuncs func(*mocks.MockCommentRepository)
+		CallMuckFuncs func(*mocks.MockStorer)
 	}{
 		{
 			Name:       "ok",
-			ReqBody:    CreateCommentReq{},
+			ReqBody:    comment.NewComment{},
 			StatusCode: http.StatusOK,
-			CallMuckFuncs: func(cr *mocks.MockCommentRepository) {
-				cr.EXPECT().Create(gomock.Any()).Times(1).Return(&models.Comment{}, nil)
+			CallMuckFuncs: func(cr *mocks.MockStorer) {
+				cr.EXPECT().Create(gomock.Any()).Times(1).Return(&comment.Comment{}, nil)
 			},
 		},
 	}
@@ -46,7 +46,7 @@ func TestCreateComment(t *testing.T) {
 			controller := gomock.NewController(t)
 			defer controller.Finish()
 
-			cmRepo := mocks.NewMockCommentRepository(controller)
+			cmRepo := mocks.NewMockStorer(controller)
 
 			ch := NewCommentHandler(cmRepo)
 			c.CallMuckFuncs(cmRepo)
